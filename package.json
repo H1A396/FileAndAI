@@ -1,14 +1,59 @@
 {
-  "name": "file-explorer",
+  "name": "file-ai-assistant",
   "version": "0.1.0",
-  "private": true,
+  "description": "一个专为与网页版AI交互设计的文件内容管理工具",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron ."
+    "dev": "electron .",
+    "build": "electron-builder --win",
+    "build:dir": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.file-ai-assistant.app",
+    "productName": "File & AI Content Assistant",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "files": [
+      "**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin"
+    ]
+  },
+  "keywords": ["file-explorer", "ai-assistant", "electron"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^26.8.1"
   },
   "dependencies": {
-    "electron": "^28.0.0",
     "iconv-lite": "^0.7.2",
     "jschardet": "^3.1.4"
   }
