@@ -1,0 +1,2255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文件资源管理器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #1a1a2e;
+      color: #ffffff;
+      min-height: 100vh;
+    }
+
+    .app-container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+      padding: 20px 30px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      padding: 15px 30px;
+      background-color: #16213e;
+      border-bottom: 1px solid #343a40;
+    }
+
+    .tab-button {
+      padding: 10px 25px;
+      border: none;
+      border-radius: 8px;
+      background-color: transparent;
+      color: #aaa;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .tab-button:hover {
+      color: #fff;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .tab-button.active {
+      color: #fff;
+      background-color: #00d4ff;
+    }
+
+    .content {
+      flex: 1;
+      padding: 20px 30px;
+      overflow: auto;
+    }
+
+    .tree-panel,
+    .files-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .tree-view-row {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .tree-view-col {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .excluded-panel-col {
+      width: 350px;
+      flex-shrink: 0;
+    }
+
+    .actions {
+      display: flex;
+      gap: 15px;
+    }
+
+    .action-button {
+      padding: 12px 25px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+    }
+
+    .action-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 212, 255, 0.4);
+    }
+
+    .selected-info {
+      background-color: #16213e;
+      border-radius: 10px;
+      padding: 15px 20px;
+    }
+
+    .selected-info h3 {
+      font-size: 16px;
+      color: #00d4ff;
+      margin-bottom: 10px;
+    }
+
+    .folder-list {
+      list-style: none;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+
+    .folder-list li {
+      padding: 5px 0;
+      color: #ccc;
+      font-size: 13px;
+      border-bottom: 1px solid #2a2a4a;
+    }
+
+    .folder-list li:last-child {
+      border-bottom: none;
+    }
+
+    .tree-view {
+      background-color: #16213e;
+      border-radius: 10px;
+      padding: 20px;
+      min-height: 200px;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      position: relative;
+    }
+
+    .tree-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.15s;
+    }
+
+    .tree-item:hover {
+      background-color: rgba(0, 212, 255, 0.08);
+    }
+
+    .tree-item.selected {
+      background-color: rgba(0, 212, 255, 0.2);
+      border-left: 3px solid #00d4ff;
+    }
+
+    .tree-item.excluded {
+      opacity: 0.4;
+      text-decoration: line-through;
+    }
+
+    .tree-item.excluded .folder-name,
+    .tree-item.excluded .file-name {
+      color: #ff6b6b;
+    }
+
+    .tree-item-wrapper {
+      position: relative;
+    }
+
+    /* 框选框样式 */
+    #selection-box, #files-selection-box {
+      position: absolute;
+      border: 1px solid #00d4ff;
+      background-color: rgba(0, 212, 255, 0.1);
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+    }
+
+    /* 右键菜单样式 */
+    #context-menu, #files-context-menu {
+      position: fixed;
+      background-color: #1e2a4a;
+      border: 1px solid #3a4a6a;
+      border-radius: 6px;
+      padding: 6px 0;
+      min-width: 150px;
+      z-index: 1000;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    #context-menu .menu-item, #files-context-menu .menu-item {
+      padding: 8px 16px;
+      color: #ccc;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background-color 0.15s;
+    }
+
+    #context-menu .menu-item:hover, #files-context-menu .menu-item:hover {
+      background-color: rgba(0, 212, 255, 0.15);
+      color: #00d4ff;
+    }
+
+    #context-menu .menu-divider, #files-context-menu .menu-divider {
+      height: 1px;
+      background-color: #3a4a6a;
+      margin: 4px 0;
+    }
+
+    .tree-content {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .folder-icon,
+    .file-icon {
+      font-size: 16px;
+    }
+
+    .folder-name {
+      color: #00d4ff;
+      font-weight: 500;
+    }
+
+    .file-name {
+      color: #ccc;
+    }
+
+    .text-output {
+      background-color: #16213e;
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .text-output h3 {
+      font-size: 16px;
+      color: #00d4ff;
+      margin-bottom: 15px;
+    }
+
+    .tree-text {
+      background-color: #0f1419;
+      border-radius: 8px;
+      padding: 15px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #e0e0e0;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: #666;
+      text-align: center;
+    }
+
+    .empty-state p {
+      margin: 5px 0;
+    }
+
+    .files-content {
+      flex: 1;
+    }
+
+    .files-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+      gap: 20px;
+    }
+
+    .file-card {
+      background-color: #16213e;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .file-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 15px;
+      background-color: #0f1419;
+      border-bottom: 1px solid #2a2a4a;
+    }
+
+    .file-path {
+      font-size: 13px;
+      color: #00d4ff;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 右侧排除列表面板样式 */
+    .excluded-panel {
+      background-color: #16213e;
+      border-radius: 12px;
+      padding: 15px;
+      overflow: hidden;
+    }
+
+    .excluded-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .excluded-panel-header h4 {
+      color: #ff6b6b;
+      font-size: 15px;
+      margin: 0;
+    }
+
+    .excluded-panel {
+      background-color: #16213e;
+      border-radius: 12px;
+      padding: 15px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .excluded-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-shrink: 0;
+    }
+
+    .excluded-panel-header h4 {
+      color: #ff6b6b;
+      font-size: 15px;
+      margin: 0;
+    }
+
+    .header-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .clear-selected-btn {
+      padding: 6px 12px;
+      font-size: 12px;
+      border: none;
+      border-radius: 6px;
+      background-color: #4a90d9;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .clear-selected-btn:hover {
+      background-color: #357abd;
+    }
+
+    .clear-all-btn {
+      padding: 6px 12px;
+      font-size: 12px;
+      border: none;
+      border-radius: 6px;
+      background-color: #ff6b6b;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .clear-all-btn:hover {
+      background-color: #ff4757;
+    }
+
+    .excluded-panel-content {
+      position: relative;
+      flex: 1;
+      min-height: 100px;
+      overflow: hidden;
+    }
+
+    #excluded-selection-box {
+      position: absolute;
+      border: 2px solid #00d4ff;
+      background-color: rgba(0, 212, 255, 0.1);
+      pointer-events: none;
+      display: none;
+      z-index: 100;
+    }
+
+    .excluded-section {
+      margin-bottom: 12px;
+    }
+
+    .excluded-section-title {
+      font-size: 13px;
+      color: #00d4ff;
+      margin-bottom: 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid #2a2a4a;
+    }
+
+    .excluded-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      background-color: #0f1419;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: #ccc;
+      user-select: none;
+    }
+
+    .excluded-item.selected {
+      background-color: #1e3a5f;
+    }
+
+    .excluded-item-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .excluded-item-remove {
+      color: #ff6b6b;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    .excluded-item-remove:hover {
+      background-color: rgba(255, 107, 107, 0.1);
+    }
+
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 10000;
+    }
+
+    .toast {
+      background-color: #4a90d9;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      opacity: 0;
+      transform: translateY(-20px);
+      transition: all 0.3s ease;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .excluded-empty {
+      text-align: center;
+      padding: 30px 20px;
+      color: #666;
+      font-size: 13px;
+    }
+
+    .encoding-tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      background-color: rgba(0, 212, 255, 0.2);
+      color: #00d4ff;
+      border-radius: 4px;
+    }
+
+    .file-content {
+      padding: 15px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #e0e0e0;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      background-color: #0f1419;
+    }
+
+    .copy-button {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border: none;
+      background-color: #0099cc;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .copy-button:hover {
+      background-color: #0077aa;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #16213e;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #343a40;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a5568;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <header class="header">
+      <h1>📂 文件资源管理器</h1>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-button active" onclick="switchTab('tree')">目录树</button>
+      <button class="tab-button" onclick="switchTab('files')">文件内容</button>
+    </div>
+
+    <div class="content">
+      <div id="tree-panel" class="tree-panel">
+        <div class="actions">
+          <button class="action-button" onclick="selectFolders()">📁 选择文件夹</button>
+          <button class="action-button" id="copy-tree-btn" style="display:none" onclick="copyTreeText()">📋 复制树结构</button>
+        </div>
+
+        <div id="selected-folders" class="selected-info" style="display:none">
+          <h3>已选择 <span id="folder-count">0</span> 个文件夹</h3>
+          <ul id="folder-list" class="folder-list"></ul>
+        </div>
+
+        <div class="tree-view-row">
+          <div class="tree-view-col">
+            <div class="tree-view" id="tree-view">
+              <div id="selection-box"></div>
+              <div id="tree-content" class="tree-content"></div>
+              <div id="tree-empty" class="empty-state">
+                <p>点击上方按钮选择文件夹</p>
+                <p>支持多选文件夹</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="excluded-panel-col">
+            <div id="excluded-panel" class="excluded-panel" style="display:none">
+              <div class="excluded-panel-header">
+                <h4 style="margin: 0; color: #ff6b6b; font-size: 15px;">🚫 已排除列表</h4>
+                <div class="header-buttons">
+                  <button class="clear-selected-btn" onclick="clearSelectedExcluded()">清除选中</button>
+                  <button class="clear-all-btn" onclick="clearAllExcluded()">清空全部</button>
+                </div>
+              </div>
+              
+              <div class="excluded-panel-content" id="excluded-panel-content">
+                <div id="excluded-selection-box"></div>
+                
+                <div id="excluded-extensions-section" class="excluded-section" style="display:none">
+                  <div class="excluded-section-title">📄 文件类型</div>
+                  <div id="excluded-extensions-list"></div>
+                </div>
+                
+                <div id="excluded-folders-section" class="excluded-section" style="display:none">
+                  <div class="excluded-section-title">📁 文件夹</div>
+                  <div id="excluded-folders-list"></div>
+                </div>
+                
+                <div id="excluded-empty" class="excluded-empty">
+                  暂无排除项
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="context-menu">
+          <div class="menu-item" onclick="contextMenuAction('exclude')">🚫 排除选择项</div>
+          <div class="menu-item" onclick="contextMenuAction('unexclude')">✅ 取消排除</div>
+        </div>
+
+        <div id="text-output" class="text-output" style="display:none">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">树结构文本</h3>
+            <button class="action-button" id="toggle-format-btn" onclick="toggleTreeFormat()" style="padding: 8px 15px; font-size: 12px;">树形符号格式</button>
+          </div>
+          
+          <div id="file-type-filter" style="background-color: #0f1419; border-radius: 8px; margin-bottom: 15px;">
+            <div onclick="toggleFilterPanel()" style="display: flex; justify-content: space-between; align-items: center; padding: 15px; cursor: pointer; user-select: none;">
+              <h4 style="margin: 0; color: #00d4ff; font-size: 14px;">📋 选择文件类型</h4>
+              <span id="filter-arrow" style="color: #00d4ff; font-size: 16px; transition: transform 0.3s;">▶</span>
+            </div>
+            <div id="filter-content" style="display: none; padding: 0 15px 15px 15px;">
+              <div id="filter-categories" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;"></div>
+            </div>
+          </div>
+          
+          <pre id="tree-text" class="tree-text"></pre>
+        </div>
+      </div>
+
+      <div id="files-panel" class="files-panel" style="display:none">
+        <div class="actions">
+          <button class="action-button" onclick="selectFiles()">📄 选择文件</button>
+          <button class="action-button" onclick="copyAllFilesContent()">📋 一键复制</button>
+        </div>
+
+        <div class="tree-view-row">
+          <div class="tree-view-col">
+            <div class="tree-view" id="files-tree-view">
+              <div id="files-selection-box"></div>
+              <div id="files-tree-content" class="tree-content"></div>
+              <div id="files-tree-empty" class="empty-state">
+                <p>请先在目录树页面选择文件夹</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="selected-files" class="selected-info" style="display:none">
+          <h3>已选择 <span id="file-count">0</span> 个文件</h3>
+          <ul id="file-list" class="folder-list"></ul>
+        </div>
+
+        <div class="files-content">
+          <div id="files-grid" class="files-grid"></div>
+          <div id="files-empty" class="empty-state">
+            <p>点击上方按钮选择文件</p>
+            <p>支持多选文件，自动识别编码</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron')
+
+    let directoryTree = []
+    let treeText = ''
+    let currentFormat = 0 // 0: 树形符号, 1: 纯缩进, 2: Markdown
+    const formatNames = ['树形符号格式', '纯缩进格式', 'Markdown 列表格式']
+    
+    // 文件内容页目录树
+    let filesSelectedItems = new Set()
+    let filesExpandedFolders = new Set()
+    let filesIsMouseDown = false
+    let filesIsDragging = false
+    let filesDragStartX = 0
+    let filesDragStartY = 0
+    let filesWasDragged = false
+    let filesMousedownItem = null
+    let filesMousedownTarget = null
+    let filesContextMenuTarget = null
+    let filesExpandedPaths = new Set() // 保存文件内容页目录树的展开路径
+    // 已选择的文件列表
+    let selectedFilePaths = []
+    
+    // 当前文件夹路径和配置
+    let currentFolderPath = null
+    let currentConfigFileName = null
+    
+    // 常见非文本文件类型（按类别分组）
+    const fileTypeCategories = {
+      '无后缀名': ['(无后缀)'],
+      '可执行文件': ['.exe', '.dll', '.so', '.dylib'],
+      '图片': ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.svg', '.webp'],
+      '音频': ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a'],
+      '视频': ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm'],
+      '压缩包': ['.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz'],
+      '文档': ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'],
+      '二进制/数据': ['.pak', '.dat', '.bin', '.db', '.sqlite'],
+      '编译产物': ['.o', '.obj', '.class', '.pyc'],
+      '压缩资源': ['.map', '.min.js', '.min.css']
+    }
+    
+    let excludedExtensions = new Set()
+    let excludedFolders = new Set()
+    let selectedExcludedItems = new Set()
+
+    // 选中状态管理
+    let selectedItems = new Set()
+    let isDragging = false
+    let isMouseDown = false
+    let dragStartX = 0
+    let dragStartY = 0
+    let contextMenuTarget = null
+    let mousedownTarget = null
+    let mousedownItem = null
+    let wasDragged = false
+
+    // 加载全局设置
+    async function loadGlobalSettings() {
+      try {
+        const settings = await ipcRenderer.invoke('load-settings')
+        
+        // 应用树形格式设置
+        currentFormat = settings.treeFormat || 0
+        const btn = document.getElementById('toggle-format-btn')
+        if (btn) btn.textContent = formatNames[currentFormat]
+        
+        // 应用过滤面板展开状态
+        if (settings.filterPanelOpen) {
+          const content = document.getElementById('filter-content')
+          const arrow = document.getElementById('filter-arrow')
+          if (content) content.style.display = 'block'
+          if (arrow) arrow.style.transform = 'rotate(90deg)'
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error)
+      }
+    }
+
+    // 保存全局设置
+    async function saveGlobalSettings() {
+      try {
+        const settings = await ipcRenderer.invoke('load-settings')
+        settings.treeFormat = currentFormat
+        
+        const content = document.getElementById('filter-content')
+        settings.filterPanelOpen = content ? content.style.display !== 'none' : false
+        
+        await ipcRenderer.invoke('save-settings', settings)
+      } catch (error) {
+        console.error('Failed to save settings:', error)
+      }
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'))
+      event.target.classList.add('active')
+
+      document.getElementById('tree-panel').style.display = tab === 'tree' ? 'flex' : 'none'
+      document.getElementById('files-panel').style.display = tab === 'files' ? 'flex' : 'none'
+
+      // 当切换到文件内容页面时，如果已经选择了文件夹，同步显示目录树
+      if (tab === 'files' && directoryTree.length > 0) {
+        renderFilesTree(directoryTree)
+        document.getElementById('files-tree-empty').style.display = 'none'
+      }
+    }
+
+    async function selectFolders() {
+      try {
+        const folders = await ipcRenderer.invoke('select-folders')
+        if (folders.length > 0) {
+          // 只处理第一个文件夹的配置
+          currentFolderPath = folders[0]
+          
+          document.getElementById('selected-folders').style.display = 'block'
+          document.getElementById('folder-count').textContent = folders.length
+          
+          const folderList = document.getElementById('folder-list')
+          folderList.innerHTML = folders.map(f => `<li>${f}</li>`).join('')
+
+          const trees = await ipcRenderer.invoke('get-directory-tree', folders)
+          directoryTree = trees
+          
+          renderTree(trees)
+          initFilterCheckboxes()
+          
+          // 同时更新文件内容页的目录树
+          renderFilesTree(trees)
+          document.getElementById('files-tree-empty').style.display = 'none'
+          
+          // 加载该文件夹的排除配置
+          const config = await ipcRenderer.invoke('load-folder-exclude-config', currentFolderPath)
+          currentConfigFileName = config.configFileName
+          
+          // 应用已保存的排除项
+          if (config.excludedExtensions && config.excludedExtensions.length > 0) {
+            config.excludedExtensions.forEach(ext => {
+              excludedExtensions.add(ext)
+              const checkbox = document.querySelector(`input[value="${ext}"]`)
+              if (checkbox) checkbox.checked = true
+            })
+          }
+          if (config.excludedFolders && config.excludedFolders.length > 0) {
+            config.excludedFolders.forEach(folderPath => {
+              excludedFolders.add(folderPath)
+            })
+          }
+          
+          updateExcludedPanelUI()
+          
+          updateTreeText()
+          
+          document.getElementById('tree-empty').style.display = 'none'
+          document.getElementById('text-output').style.display = 'block'
+          document.getElementById('copy-tree-btn').style.display = 'inline-block'
+          document.getElementById('excluded-panel').style.display = 'block'
+        }
+      } catch (error) {
+        console.error('Failed to select folders:', error)
+      }
+    }
+
+    async function selectFiles() {
+      try {
+        const files = await ipcRenderer.invoke('select-files')
+        if (files.length > 0) {
+          document.getElementById('selected-files').style.display = 'block'
+          document.getElementById('file-count').textContent = files.length
+          
+          const fileList = document.getElementById('file-list')
+          fileList.innerHTML = files.map(f => `<li>${f}</li>`).join('')
+
+          const results = await ipcRenderer.invoke('read-files', files)
+          
+          const filesGrid = document.getElementById('files-grid')
+          filesGrid.innerHTML = results.map(item => `
+            <div class="file-card">
+              <div class="file-header">
+                <span class="file-path">${item.path}</span>
+                <span class="encoding-tag">${item.encoding}</span>
+              </div>
+              <pre class="file-content">${item.content}</pre>
+              <button class="copy-button" onclick="copyFileContent(this)">📋 复制内容</button>
+            </div>
+          `).join('')
+
+          document.getElementById('files-empty').style.display = 'none'
+        }
+      } catch (error) {
+        console.error('Failed to select files:', error)
+      }
+    }
+
+    function renderTree(entries, depth = 0, parentId = '') {
+      let html = ''
+      let itemIndex = 0
+      
+      entries.forEach(entry => {
+        const itemId = parentId ? `${parentId}-${itemIndex}` : `root-${itemIndex}`
+        const childrenId = `${itemId}-children`
+        const icon = entry.is_dir ? '📁' : '📄'
+        const className = entry.is_dir ? 'folder-name' : 'file-name'
+        const name = entry.is_dir ? `${entry.name}/` : entry.name
+        const hasChildren = entry.is_dir && entry.children && entry.children.length > 0
+        const itemPath = entry.path || ''
+        
+        // 检查是否被排除
+        let isExcluded = false
+        if (itemPath) {
+          if (entry.is_dir) {
+            isExcluded = isPathOrParentExcluded(itemPath)
+          } else {
+            const parts = itemPath.split('.')
+            const ext = parts.length > 1 ? '.' + parts.pop().toLowerCase() : '(无后缀)'
+            isExcluded = excludedExtensions.has(ext) || isPathOrParentExcluded(itemPath)
+          }
+        }
+        
+        html += `
+          <div class="tree-item-wrapper">
+            <div data-item-id="${itemId}" data-item-path="${itemPath}" data-is-dir="${entry.is_dir}" data-children-id="${hasChildren ? childrenId : ''}" style="padding-left: ${depth * 20}px" class="tree-item ${isExcluded ? 'excluded' : ''}" style="cursor: pointer;">
+              ${hasChildren ? `<span id="${itemId}-arrow" class="folder-arrow">▶</span>` : '<span class="folder-arrow-placeholder"></span>'}
+              <span class="${entry.is_dir ? 'folder-icon' : 'file-icon'}">${icon}</span>
+              <span class="${className}">${name}</span>
+            </div>
+            ${hasChildren ? `<div id="${childrenId}" class="tree-children" style="display: none;">${renderTree(entry.children, depth + 1, itemId)}</div>` : ''}
+          </div>
+        `
+        
+        itemIndex++
+      })
+      
+      if (depth === 0) {
+        document.getElementById('tree-content').innerHTML = html
+        initTreeSelection()
+      }
+      
+      return html
+    }
+
+    // 初始化树选择功能
+    function initTreeSelection() {
+      const treeView = document.getElementById('tree-view')
+      const selectionBox = document.getElementById('selection-box')
+      const contextMenu = document.getElementById('context-menu')
+      
+      // 清除旧的事件监听
+      treeView.removeEventListener('mousedown', handleMouseDown)
+      treeView.removeEventListener('mousemove', handleMouseMove)
+      treeView.removeEventListener('mouseup', handleMouseUp)
+      treeView.removeEventListener('dblclick', handleDblClick)
+      treeView.removeEventListener('contextmenu', handleContextMenu)
+      document.removeEventListener('click', hideContextMenu)
+      
+      // 添加新的事件监听
+      treeView.addEventListener('mousedown', handleMouseDown)
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      treeView.addEventListener('dblclick', handleDblClick)
+      treeView.addEventListener('contextmenu', handleContextMenu)
+      document.addEventListener('click', hideContextMenu)
+      
+      function handleMouseDown(e) {
+        if (e.button !== 0) return
+        if (e.target.closest('#context-menu')) return
+        
+        isMouseDown = true
+        
+        mousedownTarget = e.target
+        const treeItem = e.target.closest('.tree-item')
+        mousedownItem = treeItem
+        
+        // 记录起始位置
+        const rect = treeView.getBoundingClientRect()
+        dragStartX = e.clientX - rect.left
+        dragStartY = e.clientY - rect.top
+        
+        isDragging = false
+        selectionBox.style.display = 'none'
+        
+        // 如果点击空白区域且没有按Ctrl，清除选择
+        if (!treeItem && !e.ctrlKey && !e.metaKey) {
+          clearSelection()
+        }
+      }
+      
+      function handleMouseMove(e) {
+        if (!isMouseDown) return
+        
+        const rect = treeView.getBoundingClientRect()
+        const currentX = e.clientX - rect.left
+        const currentY = e.clientY - rect.top
+        const moveDist = Math.sqrt(Math.pow(currentX - dragStartX, 2) + Math.pow(currentY - dragStartY, 2))
+        
+        if (moveDist > 5) {
+          isDragging = true
+          
+          const left = Math.min(dragStartX, currentX)
+          const top = Math.min(dragStartY, currentY)
+          const width = Math.abs(currentX - dragStartX)
+          const height = Math.abs(currentY - dragStartY)
+          
+          selectionBox.style.left = left + 'px'
+          selectionBox.style.top = top + 'px'
+          selectionBox.style.width = width + 'px'
+          selectionBox.style.height = height + 'px'
+          selectionBox.style.display = 'block'
+        }
+      }
+      
+      function handleMouseUp(e) {
+        if (e.button !== 0) return
+        
+        isMouseDown = false
+        
+        const rect = treeView.getBoundingClientRect()
+        const currentX = e.clientX - rect.left
+        const currentY = e.clientY - rect.top
+        const moveDist = Math.sqrt(Math.pow(currentX - dragStartX, 2) + Math.pow(currentY - dragStartY, 2))
+        
+        wasDragged = moveDist > 5
+        
+        if (isDragging && moveDist > 5) {
+          // 执行框选
+          const boxLeft = parseInt(selectionBox.style.left)
+          const boxTop = parseInt(selectionBox.style.top)
+          const boxWidth = parseInt(selectionBox.style.width)
+          const boxHeight = parseInt(selectionBox.style.height)
+          
+          if (boxWidth > 5 || boxHeight > 5) {
+            if (!e.ctrlKey && !e.metaKey) {
+              clearSelection()
+            }
+            
+            const boxRect = {
+              left: boxLeft,
+              top: boxTop,
+              right: boxLeft + boxWidth,
+              bottom: boxTop + boxHeight
+            }
+            
+            const allItems = treeView.querySelectorAll('.tree-item')
+            allItems.forEach(item => {
+              const itemRect = item.getBoundingClientRect()
+              const itemLeft = itemRect.left - rect.left
+              const itemTop = itemRect.top - rect.top
+              const itemRight = itemLeft + itemRect.width
+              const itemBottom = itemTop + itemRect.height
+              
+              if (itemLeft < boxRect.right && itemRight > boxRect.left &&
+                  itemTop < boxRect.bottom && itemBottom > boxRect.top) {
+                const itemId = item.dataset.itemId
+                selectItem(itemId, item)
+              }
+            })
+          }
+        } else if (mousedownItem && moveDist <= 5) {
+          // 点击项：单选
+          const itemId = mousedownItem.dataset.itemId
+          
+          if (!e.ctrlKey && !e.metaKey) {
+            clearSelection()
+          }
+          selectItem(itemId, mousedownItem)
+        }
+        
+        isDragging = false
+        selectionBox.style.display = 'none'
+        mousedownTarget = null
+        mousedownItem = null
+      }
+      
+      function handleContextMenu(e) {
+        e.preventDefault()
+        
+        const treeItem = e.target.closest('.tree-item')
+        if (treeItem) {
+          contextMenuTarget = treeItem
+          
+          const itemId = treeItem.dataset.itemId
+          // 如果右键点击的项不在已选中的集合中，则只选中它
+          if (!selectedItems.has(itemId)) {
+            clearSelection()
+            selectItem(itemId, treeItem)
+          }
+          
+          contextMenu.style.left = e.clientX + 'px'
+          contextMenu.style.top = e.clientY + 'px'
+          contextMenu.style.display = 'block'
+        }
+      }
+      
+      function handleDblClick(e) {
+        const treeItem = e.target.closest('.tree-item')
+        if (!treeItem) return
+        
+        const childrenId = treeItem.dataset.childrenId
+        if (!childrenId) return
+        
+        const itemId = treeItem.dataset.itemId
+        const childrenDiv = document.getElementById(childrenId)
+        const arrow = document.getElementById(`${itemId}-arrow`)
+        
+        if (childrenDiv && arrow) {
+          const isHidden = childrenDiv.style.display === 'none'
+          childrenDiv.style.display = isHidden ? 'block' : 'none'
+          arrow.textContent = isHidden ? '▼' : '▶'
+        }
+      }
+    }
+    
+    function hideContextMenu() {
+      const contextMenu = document.getElementById('context-menu')
+      contextMenu.style.display = 'none'
+    }
+    
+    function toggleSelectItem(itemId, element) {
+      if (selectedItems.has(itemId)) {
+        selectedItems.delete(itemId)
+        element.classList.remove('selected')
+      } else {
+        selectedItems.add(itemId)
+        element.classList.add('selected')
+      }
+    }
+    
+    function selectItem(itemId, element) {
+      selectedItems.add(itemId)
+      element.classList.add('selected')
+    }
+    
+    function clearSelection() {
+      selectedItems.forEach(itemId => {
+        const element = document.querySelector(`[data-item-id="${itemId}"]`)
+        if (element) element.classList.remove('selected')
+      })
+      selectedItems.clear()
+    }
+    
+    function contextMenuAction(action) {
+      hideContextMenu()
+      
+      if (action === 'exclude') {
+        const extensionsToAdd = new Set()
+        const foldersToAdd = new Set()
+        
+        selectedItems.forEach(itemId => {
+          const element = document.querySelector(`[data-item-id="${itemId}"]`)
+          if (element) {
+            const path = element.dataset.itemPath
+            const isDir = element.dataset.isDir === 'true'
+            
+            if (isDir && path) {
+              foldersToAdd.add(path)
+            } else if (!isDir && path) {
+              const parts = path.split('.')
+              if (parts.length > 1) {
+                const ext = '.' + parts.pop().toLowerCase()
+                extensionsToAdd.add(ext)
+              } else {
+                extensionsToAdd.add('(无后缀)')
+              }
+            }
+          }
+        })
+        
+        // 添加到排除文件夹列表
+        foldersToAdd.forEach(folderPath => {
+          excludedFolders.add(folderPath)
+        })
+        
+        // 添加到排除扩展名列表
+        extensionsToAdd.forEach(ext => {
+          excludedExtensions.add(ext)
+          const checkbox = document.querySelector(`input[value="${ext}"]`)
+          if (checkbox) checkbox.checked = true
+        })
+        
+        // 更新树文本并保存配置
+        updateTreeText()
+        updateExcludedPanelUI()
+        saveCurrentConfig()
+      } else if (action === 'unexclude') {
+        const extensionsToRemove = new Set()
+        const foldersToRemove = new Set()
+        
+        selectedItems.forEach(itemId => {
+          const element = document.querySelector(`[data-item-id="${itemId}"]`)
+          if (element) {
+            const path = element.dataset.itemPath
+            const isDir = element.dataset.isDir === 'true'
+            
+            if (isDir && path) {
+              foldersToRemove.add(path)
+            } else if (!isDir && path) {
+              const parts = path.split('.')
+              if (parts.length > 1) {
+                const ext = '.' + parts.pop().toLowerCase()
+                extensionsToRemove.add(ext)
+              } else {
+                extensionsToRemove.add('(无后缀)')
+              }
+            }
+          }
+        })
+        
+        // 从排除文件夹列表移除
+        foldersToRemove.forEach(folderPath => {
+          excludedFolders.delete(folderPath)
+        })
+        
+        // 从排除扩展名列表移除
+        extensionsToRemove.forEach(ext => {
+          excludedExtensions.delete(ext)
+          const checkbox = document.querySelector(`input[value="${ext}"]`)
+          if (checkbox) checkbox.checked = false
+        })
+        
+        updateTreeText()
+        updateExcludedPanelUI()
+        saveCurrentConfig()
+      }
+    }
+
+    function formatTreeText(entries, prefix = '') {
+      let result = ''
+      
+      entries.forEach((entry, index) => {
+        const name = entry.is_dir ? `${entry.name}/` : entry.name
+        result += `${prefix}${name}\n`
+        
+        if (entry.is_dir && entry.children) {
+          const newPrefix = prefix + '  '
+          entry.children.forEach((child, childIndex) => {
+            const childPrefix = childIndex === entry.children.length - 1 
+              ? `${newPrefix}└── ` 
+              : `${newPrefix}├── `
+            result += formatTreeText([child], childPrefix)
+          })
+        }
+      })
+      
+      return result
+    }
+
+    function formatTreeTextSimple(entries, indent = 0) {
+      let result = ''
+      const spaces = '  '.repeat(indent)
+      
+      entries.forEach(entry => {
+        const name = entry.is_dir ? `${entry.name}/` : entry.name
+        result += `${spaces}${name}\n`
+        
+        if (entry.is_dir && entry.children) {
+          result += formatTreeTextSimple(entry.children, indent + 1)
+        }
+      })
+      
+      return result
+    }
+
+    function formatTreeTextMarkdown(entries, indent = 0) {
+      let result = ''
+      const prefix = '  '.repeat(indent)
+      
+      entries.forEach(entry => {
+        const name = entry.is_dir ? `${entry.name}/` : entry.name
+        result += `${prefix}- ${name}\n`
+        
+        if (entry.is_dir && entry.children) {
+          result += formatTreeTextMarkdown(entry.children, indent + 1)
+        }
+      })
+      
+      return result
+    }
+
+    function toggleTreeFormat() {
+      currentFormat = (currentFormat + 1) % 3
+      const btn = document.getElementById('toggle-format-btn')
+      btn.textContent = formatNames[currentFormat]
+      updateTreeText()
+      saveGlobalSettings()
+    }
+
+    function toggleFilterPanel() {
+      const content = document.getElementById('filter-content')
+      const arrow = document.getElementById('filter-arrow')
+      const isHidden = content.style.display === 'none'
+      content.style.display = isHidden ? 'block' : 'none'
+      arrow.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)'
+      saveGlobalSettings()
+    }
+
+    function initFilterCheckboxes() {
+      const container = document.getElementById('filter-categories')
+      let html = ''
+      
+      for (const [category, extensions] of Object.entries(fileTypeCategories)) {
+        const categoryId = category.replace(/[\/\s]/g, '_')
+        html += `
+          <div style="background-color: #16213e; border-radius: 6px; padding: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <h5 style="margin: 0; color: #00d4ff; font-size: 13px;">${category}</h5>
+              <div style="display: flex; gap: 8px;">
+                <label style="font-size: 11px; color: #00d4ff; cursor: pointer;" onclick="selectAllInCategory('${categoryId}', true)">全选</label>
+                <label style="font-size: 11px; color: #ff6b6b; cursor: pointer;" onclick="selectAllInCategory('${categoryId}', false)">取消</label>
+              </div>
+            </div>
+            <div id="${categoryId}" style="display: flex; flex-direction: column; gap: 4px;">
+              ${extensions.map(ext => `
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #ccc;">
+                  <input type="checkbox" value="${ext}" onchange="onFilterChange('${ext}', this.checked)" style="cursor: pointer;">
+                  ${ext}
+                </label>
+              `).join('')}
+            </div>
+          </div>
+        `
+      }
+      
+      container.innerHTML = html
+    }
+
+    function selectAllInCategory(categoryId, select) {
+      const container = document.getElementById(categoryId)
+      const checkboxes = container.querySelectorAll('input[type="checkbox"]')
+      checkboxes.forEach(cb => {
+        cb.checked = select
+        const ext = cb.value
+        if (select) {
+          excludedExtensions.add(ext)
+        } else {
+          excludedExtensions.delete(ext)
+        }
+      })
+      updateTreeText()
+      updateExcludedPanelUI()
+      saveCurrentConfig()
+    }
+
+    function onFilterChange(ext, checked) {
+      if (checked) {
+        excludedExtensions.add(ext)
+      } else {
+        excludedExtensions.delete(ext)
+      }
+      updateTreeText()
+      updateExcludedPanelUI()
+      saveCurrentConfig()
+    }
+
+    let excludedSelectionInitialized = false
+    
+    function updateExcludedPanelUI() {
+      const panel = document.getElementById('excluded-panel')
+      const extensionsSection = document.getElementById('excluded-extensions-section')
+      const extensionsList = document.getElementById('excluded-extensions-list')
+      const foldersSection = document.getElementById('excluded-folders-section')
+      const foldersList = document.getElementById('excluded-folders-list')
+      const emptyState = document.getElementById('excluded-empty')
+      
+      const hasExcluded = excludedExtensions.size > 0 || excludedFolders.size > 0
+      
+      if (!hasExcluded) {
+        panel.style.display = 'block'
+        extensionsSection.style.display = 'none'
+        foldersSection.style.display = 'none'
+        emptyState.style.display = 'block'
+        selectedExcludedItems.clear()
+        return
+      }
+      
+      panel.style.display = 'block'
+      emptyState.style.display = 'none'
+      
+      if (!excludedSelectionInitialized) {
+        excludedSelectionInitialized = true
+        initExcludedSelection()
+      }
+      
+      // 更新文件类型列表
+      if (excludedExtensions.size > 0) {
+        extensionsSection.style.display = 'block'
+        extensionsList.innerHTML = Array.from(excludedExtensions).map((ext, index) => {
+          const itemId = `ext:${ext}`
+          const isSelected = selectedExcludedItems.has(itemId)
+          return `
+            <div class="excluded-item ${isSelected ? 'selected' : ''}" data-type="extension" data-id="${itemId}">
+              <span class="excluded-item-name">📄 ${ext}</span>
+              <span class="excluded-item-remove">✕</span>
+            </div>
+          `
+        }).join('')
+      } else {
+        extensionsSection.style.display = 'none'
+      }
+      
+      // 更新文件夹列表
+      if (excludedFolders.size > 0) {
+        foldersSection.style.display = 'block'
+        foldersList.innerHTML = Array.from(excludedFolders).map((folderPath, index) => {
+          const displayName = folderPath.split('\\').pop() || folderPath
+          const itemId = `folder:${folderPath}`
+          const isSelected = selectedExcludedItems.has(itemId)
+          return `
+            <div class="excluded-item ${isSelected ? 'selected' : ''}" data-type="folder" data-id="${itemId}">
+              <span class="excluded-item-name" title="${folderPath}">📁 ${displayName}</span>
+              <span class="excluded-item-remove">✕</span>
+            </div>
+          `
+        }).join('')
+      } else {
+        foldersSection.style.display = 'none'
+      }
+      
+      // 绑定删除按钮事件
+      const extensionsArray = Array.from(excludedExtensions)
+      const foldersArray = Array.from(excludedFolders)
+      
+      extensionsList.querySelectorAll('.excluded-item').forEach((item, idx) => {
+        item.querySelector('.excluded-item-remove').addEventListener('click', (e) => {
+          e.stopPropagation()
+          removeExcludedExtension(extensionsArray[idx])
+        })
+      })
+      
+      foldersList.querySelectorAll('.excluded-item').forEach((item, idx) => {
+        item.querySelector('.excluded-item-remove').addEventListener('click', (e) => {
+          e.stopPropagation()
+          removeExcludedFolder(foldersArray[idx])
+        })
+      })
+    }
+    
+    // 已排除列表的选择和框选变量
+    let excludedIsMouseDown = false
+    let excludedIsDragging = false
+    let excludedDragStartX = 0
+    let excludedDragStartY = 0
+    let excludedWasDragged = false
+    let excludedMousedownItem = null
+    let excludedMousedownTarget = null
+    
+    function initExcludedSelection() {
+      const content = document.getElementById('excluded-panel-content')
+      if (!content) return
+      
+      content.addEventListener('mousedown', handleExcludedMouseDown)
+      content.addEventListener('mousemove', handleExcludedMouseMove)
+      document.addEventListener('mouseup', handleExcludedMouseUp)
+    }
+    
+    function handleExcludedMouseDown(e) {
+      if (e.button !== 0) return
+      
+      // 如果点击的是按钮，不处理
+      if (e.target.closest('button')) {
+        return
+      }
+      
+      const content = document.getElementById('excluded-panel-content')
+      if (!content) return
+      
+      excludedMousedownTarget = e.target
+      excludedMousedownItem = e.target.closest('.excluded-item')
+      excludedIsMouseDown = true
+      excludedIsDragging = false
+      excludedWasDragged = false
+      
+      const rect = content.getBoundingClientRect()
+      excludedDragStartX = e.clientX - rect.left
+      excludedDragStartY = e.clientY - rect.top
+    }
+    
+    function handleExcludedMouseMove(e) {
+      if (!excludedIsMouseDown) return
+      
+      const content = document.getElementById('excluded-panel-content')
+      if (!content) return
+      
+      const rect = content.getBoundingClientRect()
+      const currentX = e.clientX - rect.left
+      const currentY = e.clientY - rect.top
+      const moveDist = Math.sqrt(Math.pow(currentX - excludedDragStartX, 2) + Math.pow(currentY - excludedDragStartY, 2))
+      
+      if (moveDist > 5) {
+        excludedIsDragging = true
+        
+        const selectionBox = document.getElementById('excluded-selection-box')
+        const left = Math.min(excludedDragStartX, currentX)
+        const top = Math.min(excludedDragStartY, currentY)
+        const width = Math.abs(currentX - excludedDragStartX)
+        const height = Math.abs(currentY - excludedDragStartY)
+        
+        selectionBox.style.left = left + 'px'
+        selectionBox.style.top = top + 'px'
+        selectionBox.style.width = width + 'px'
+        selectionBox.style.height = height + 'px'
+        selectionBox.style.display = 'block'
+      }
+    }
+    
+    function handleExcludedMouseUp(e) {
+      if (e.button !== 0) return
+      
+      // 如果点击的是按钮，不处理
+      if (e.target.closest('button')) {
+        excludedIsMouseDown = false
+        return
+      }
+      
+      excludedIsMouseDown = false
+      
+      const content = document.getElementById('excluded-panel-content')
+      if (!content) return
+      
+      const rect = content.getBoundingClientRect()
+      const currentX = e.clientX - rect.left
+      const currentY = e.clientY - rect.top
+      const moveDist = Math.sqrt(Math.pow(currentX - excludedDragStartX, 2) + Math.pow(currentY - excludedDragStartY, 2))
+      
+      excludedWasDragged = moveDist > 5
+      
+      if (excludedIsDragging && moveDist > 5) {
+        // 执行框选
+        const selectionBox = document.getElementById('excluded-selection-box')
+        const boxLeft = parseInt(selectionBox.style.left)
+        const boxTop = parseInt(selectionBox.style.top)
+        const boxWidth = parseInt(selectionBox.style.width)
+        const boxHeight = parseInt(selectionBox.style.height)
+        
+        if (boxWidth > 5 || boxHeight > 5) {
+          if (!e.ctrlKey && !e.metaKey) {
+            clearExcludedSelection()
+          }
+          
+          const boxRect = {
+            left: boxLeft,
+            top: boxTop,
+            right: boxLeft + boxWidth,
+            bottom: boxTop + boxHeight
+          }
+          
+          const allItems = content.querySelectorAll('.excluded-item')
+          allItems.forEach(item => {
+            const itemRect = item.getBoundingClientRect()
+            const itemLeft = itemRect.left - rect.left
+            const itemTop = itemRect.top - rect.top
+            const itemRight = itemLeft + itemRect.width
+            const itemBottom = itemTop + itemRect.height
+            
+            if (itemLeft < boxRect.right && itemRight > boxRect.left &&
+                itemTop < boxRect.bottom && itemBottom > boxRect.top) {
+              const itemId = item.dataset.id
+              selectExcludedItem(itemId, item)
+            }
+          })
+        }
+      } else if (excludedMousedownItem && moveDist <= 5) {
+        // 点击项：单选
+        const itemId = excludedMousedownItem.dataset.id
+        
+        if (!e.ctrlKey && !e.metaKey) {
+          clearExcludedSelection()
+        }
+        
+        if (selectedExcludedItems.has(itemId)) {
+          if (e.ctrlKey || e.metaKey) {
+            deselectExcludedItem(itemId, excludedMousedownItem)
+          }
+        } else {
+          selectExcludedItem(itemId, excludedMousedownItem)
+        }
+      } else if (!e.target.closest('.excluded-item') && !e.target.closest('.excluded-item-remove')) {
+        // 点击空白处：清空选择
+        if (!e.ctrlKey && !e.metaKey) {
+          clearExcludedSelection()
+        }
+      }
+      
+      excludedIsDragging = false
+      const selectionBox = document.getElementById('excluded-selection-box')
+      if (selectionBox) selectionBox.style.display = 'none'
+      excludedMousedownTarget = null
+      excludedMousedownItem = null
+    }
+    
+    function clearExcludedSelection() {
+      selectedExcludedItems.clear()
+      const items = document.querySelectorAll('.excluded-item')
+      items.forEach(item => item.classList.remove('selected'))
+    }
+    
+    function selectExcludedItem(itemId, element) {
+      if (!selectedExcludedItems.has(itemId)) {
+        selectedExcludedItems.add(itemId)
+        element.classList.add('selected')
+      }
+    }
+    
+    function deselectExcludedItem(itemId, element) {
+      selectedExcludedItems.delete(itemId)
+      element.classList.remove('selected')
+    }
+
+    function removeExcludedExtension(ext) {
+      excludedExtensions.delete(ext)
+      selectedExcludedItems.delete(`ext:${ext}`)
+      // 更新过滤面板的复选框
+      const checkbox = document.querySelector(`input[value="${ext}"]`)
+      if (checkbox) checkbox.checked = false
+      updateTreeText()
+      updateExcludedPanelUI()
+      saveCurrentConfig()
+    }
+
+    function removeExcludedFolder(folderPath) {
+      excludedFolders.delete(folderPath)
+      selectedExcludedItems.delete(`folder:${folderPath}`)
+      updateTreeText()
+      updateExcludedPanelUI()
+      saveCurrentConfig()
+    }
+
+    function clearAllExcluded() {
+      excludedExtensions.clear()
+      excludedFolders.clear()
+      selectedExcludedItems.clear()
+      // 更新过滤面板的所有复选框
+      const checkboxes = document.querySelectorAll('#file-type-filter input[type="checkbox"]')
+      checkboxes.forEach(cb => cb.checked = false)
+      updateTreeText()
+      updateExcludedPanelUI()
+      saveCurrentConfig()
+    }
+
+    function clearSelectedExcluded() {
+      if (selectedExcludedItems.size === 0) return
+      
+      selectedExcludedItems.forEach(itemId => {
+        if (itemId.startsWith('ext:')) {
+          const ext = itemId.slice(4)
+          excludedExtensions.delete(ext)
+          const checkbox = document.querySelector(`input[value="${ext}"]`)
+          if (checkbox) checkbox.checked = false
+        } else if (itemId.startsWith('folder:')) {
+          const folderPath = itemId.slice(7)
+          excludedFolders.delete(folderPath)
+        }
+      })
+      
+      selectedExcludedItems.clear()
+      updateTreeText()
+      updateExcludedPanelUI()
+      saveCurrentConfig()
+    }
+
+    async function saveCurrentConfig() {
+      if (!currentFolderPath) return
+      
+      try {
+        await ipcRenderer.invoke(
+          'save-folder-exclude-config',
+          currentFolderPath,
+          Array.from(excludedExtensions),
+          Array.from(excludedFolders),
+          currentConfigFileName
+        )
+      } catch (error) {
+        console.error('Failed to save config:', error)
+      }
+    }
+
+    function filterTree(entries) {
+      return entries.filter(entry => {
+        if (entry.is_dir) {
+          if (excludedFolders.has(entry.path)) {
+            return false
+          }
+          if (entry.children) {
+            entry.children = filterTree(entry.children)
+          }
+          return true
+        } else {
+          const parts = entry.name.split('.')
+          const ext = parts.length > 1 ? '.' + parts.pop().toLowerCase() : '(无后缀)'
+          return !excludedExtensions.has(ext)
+        }
+      })
+    }
+
+    function isPathOrParentExcluded(itemPath) {
+      if (excludedFolders.has(itemPath)) return true
+      const parts = itemPath.split('\\')
+      for (let i = parts.length - 1; i > 0; i--) {
+        const parentPath = parts.slice(0, i).join('\\')
+        if (excludedFolders.has(parentPath)) return true
+      }
+      return false
+    }
+
+    function updateTreeText() {
+      const treeTextElement = document.getElementById('tree-text')
+      
+      // 深拷贝后过滤，避免修改原始树结构
+      const filteredTree = JSON.parse(JSON.stringify(directoryTree))
+      filterTree(filteredTree)
+      
+      switch (currentFormat) {
+        case 0:
+          treeTextElement.textContent = formatTreeText(filteredTree)
+          break
+        case 1:
+          treeTextElement.textContent = formatTreeTextSimple(filteredTree)
+          break
+        case 2:
+          treeTextElement.textContent = formatTreeTextMarkdown(filteredTree)
+          break
+      }
+      
+      // 更新目录树的排除样式
+      updateTreeExcludedStyles()
+      updateFilesTreeExcludedStyles()
+    }
+
+    function updateTreeExcludedStyles() {
+      const allItems = document.querySelectorAll('.tree-item')
+      allItems.forEach(item => {
+        const path = item.dataset.itemPath
+        const isDir = item.dataset.isDir === 'true'
+        
+        if (path) {
+          let isExcluded = false
+          if (isDir) {
+            isExcluded = isPathOrParentExcluded(path)
+          } else {
+            const parts = path.split('.')
+            const ext = parts.length > 1 ? '.' + parts.pop().toLowerCase() : '(无后缀)'
+            isExcluded = excludedExtensions.has(ext) || isPathOrParentExcluded(path)
+          }
+          
+          if (isExcluded) {
+            item.classList.add('excluded')
+          } else {
+            item.classList.remove('excluded')
+          }
+        }
+      })
+    }
+
+    function updateFilesTreeExcludedStyles() {
+      const filesTreeView = document.getElementById('files-tree-view')
+      if (!filesTreeView) return
+      
+      const allItems = filesTreeView.querySelectorAll('.tree-item')
+      allItems.forEach(item => {
+        const path = item.dataset.itemPath
+        const isDir = item.dataset.isDir === 'true'
+        
+        if (path) {
+          let isExcluded = false
+          if (isDir) {
+            isExcluded = isPathOrParentExcluded(path)
+          } else {
+            const parts = path.split('.')
+            const ext = parts.length > 1 ? '.' + parts.pop().toLowerCase() : '(无后缀)'
+            isExcluded = excludedExtensions.has(ext) || isPathOrParentExcluded(path)
+          }
+          
+          if (isExcluded) {
+            item.classList.add('excluded')
+          } else {
+            item.classList.remove('excluded')
+          }
+        }
+      })
+    }
+
+    async function copyTreeText() {
+      try {
+        const treeTextElement = document.getElementById('tree-text')
+        await navigator.clipboard.writeText(treeTextElement.textContent)
+        alert('已复制到剪贴板')
+      } catch (error) {
+        console.error('Failed to copy:', error)
+      }
+    }
+
+    // ========== 文件内容页目录树函数 ==========
+
+    function renderFilesTree(entries, depth = 0, parentId = '') {
+      let html = ''
+      let itemIndex = 0
+      
+      entries.forEach(entry => {
+        const itemId = parentId ? `${parentId}-${itemIndex}` : `files-root-${itemIndex}`
+        const childrenId = `${itemId}-children`
+        const icon = entry.is_dir ? '📁' : '📄'
+        const className = entry.is_dir ? 'folder-name' : 'file-name'
+        const name = entry.is_dir ? `${entry.name}/` : entry.name
+        const hasChildren = entry.is_dir && entry.children && entry.children.length > 0
+        const itemPath = entry.path || ''
+        
+        // 检查是否需要展开
+        const isExpanded = hasChildren && filesExpandedPaths.has(itemPath)
+        const arrowIcon = isExpanded ? '▼' : '▶'
+        const childrenDisplay = isExpanded ? 'block' : 'none'
+        
+        html += `
+          <div class="tree-item-wrapper">
+            <div data-item-id="${itemId}" data-item-path="${itemPath}" data-is-dir="${entry.is_dir}" data-children-id="${hasChildren ? childrenId : ''}" style="padding-left: ${depth * 20}px; cursor: pointer;" class="tree-item">
+              ${hasChildren ? `<span id="${itemId}-arrow" class="folder-arrow">${arrowIcon}</span>` : '<span class="folder-arrow-placeholder"></span>'}
+              <span class="${entry.is_dir ? 'folder-icon' : 'file-icon'}">${icon}</span>
+              <span class="${className}">${name}</span>
+            </div>
+            ${hasChildren ? `<div id="${childrenId}" class="tree-children" style="display: ${childrenDisplay};">${renderFilesTree(entry.children, depth + 1, itemId)}</div>` : ''}
+          </div>
+        `
+        
+        itemIndex++
+      })
+      
+      if (depth === 0) {
+        document.getElementById('files-tree-content').innerHTML = html
+        initFilesTreeSelection()
+        updateFilesTreeExcludedStyles()
+      }
+      
+      return html
+    }
+
+    // ========== 文件内容页目录树事件处理（独立函数） ==========
+
+    function handleFilesMouseDown(e) {
+      if (e.button !== 0) return
+      if (e.target.closest('#files-context-menu')) return
+      
+      const treeView = document.getElementById('files-tree-view')
+      const selectionBox = document.getElementById('files-selection-box')
+      
+      filesIsMouseDown = true
+      filesMousedownTarget = e.target
+      const treeItem = e.target.closest('.tree-item')
+      filesMousedownItem = treeItem
+      
+      const rect = treeView.getBoundingClientRect()
+      filesDragStartX = e.clientX - rect.left
+      filesDragStartY = e.clientY - rect.top
+      
+      filesIsDragging = false
+      selectionBox.style.display = 'none'
+      
+      if (!treeItem && !e.ctrlKey && !e.metaKey) {
+        clearFilesSelection()
+      }
+    }
+
+    function handleFilesMouseMove(e) {
+      if (!filesIsMouseDown) return
+      
+      const treeView = document.getElementById('files-tree-view')
+      const selectionBox = document.getElementById('files-selection-box')
+      
+      const rect = treeView.getBoundingClientRect()
+      const currentX = e.clientX - rect.left
+      const currentY = e.clientY - rect.top
+      const moveDist = Math.sqrt(Math.pow(currentX - filesDragStartX, 2) + Math.pow(currentY - filesDragStartY, 2))
+      
+      if (moveDist > 5) {
+        filesIsDragging = true
+        
+        const left = Math.min(filesDragStartX, currentX)
+        const top = Math.min(filesDragStartY, currentY)
+        const width = Math.abs(currentX - filesDragStartX)
+        const height = Math.abs(currentY - filesDragStartY)
+        
+        selectionBox.style.left = left + 'px'
+        selectionBox.style.top = top + 'px'
+        selectionBox.style.width = width + 'px'
+        selectionBox.style.height = height + 'px'
+        selectionBox.style.display = 'block'
+      }
+    }
+
+    function handleFilesMouseUp(e) {
+      if (e.button !== 0) return
+      
+      const treeView = document.getElementById('files-tree-view')
+      const selectionBox = document.getElementById('files-selection-box')
+      
+      filesIsMouseDown = false
+      
+      const rect = treeView.getBoundingClientRect()
+      const currentX = e.clientX - rect.left
+      const currentY = e.clientY - rect.top
+      const moveDist = Math.sqrt(Math.pow(currentX - filesDragStartX, 2) + Math.pow(currentY - filesDragStartY, 2))
+      
+      filesWasDragged = moveDist > 5
+      
+      if (filesIsDragging && moveDist > 5) {
+        const boxLeft = parseInt(selectionBox.style.left)
+        const boxTop = parseInt(selectionBox.style.top)
+        const boxWidth = parseInt(selectionBox.style.width)
+        const boxHeight = parseInt(selectionBox.style.height)
+        
+        if (boxWidth > 5 || boxHeight > 5) {
+          if (!e.ctrlKey && !e.metaKey) {
+            clearFilesSelection()
+          }
+          
+          const boxRect = {
+            left: boxLeft,
+            top: boxTop,
+            right: boxLeft + boxWidth,
+            bottom: boxTop + boxHeight
+          }
+          
+          const allItems = treeView.querySelectorAll('.tree-item')
+          allItems.forEach(item => {
+            const itemRect = item.getBoundingClientRect()
+            const viewRect = treeView.getBoundingClientRect()
+            const itemLeft = itemRect.left - viewRect.left
+            const itemTop = itemRect.top - viewRect.top
+            const itemRight = itemLeft + itemRect.width
+            const itemBottom = itemTop + itemRect.height
+            
+            if (itemLeft < boxRect.right && itemRight > boxRect.left &&
+                itemTop < boxRect.bottom && itemBottom > boxRect.top) {
+              const itemId = item.dataset.itemId
+              if (!filesSelectedItems.has(itemId)) {
+                filesSelectedItems.add(itemId)
+                item.classList.add('selected')
+              }
+            }
+          })
+        }
+        
+        selectionBox.style.display = 'none'
+      } else {
+        const treeItem = filesMousedownItem
+        if (treeItem) {
+          const itemId = treeItem.dataset.itemId
+          
+          if (e.ctrlKey || e.metaKey) {
+            if (filesSelectedItems.has(itemId)) {
+              filesSelectedItems.delete(itemId)
+              treeItem.classList.remove('selected')
+            } else {
+              filesSelectedItems.add(itemId)
+              treeItem.classList.add('selected')
+            }
+          } else {
+            if (!filesSelectedItems.has(itemId) || filesSelectedItems.size !== 1) {
+              clearFilesSelection()
+              filesSelectedItems.add(itemId)
+              treeItem.classList.add('selected')
+            }
+          }
+        }
+      }
+    }
+
+    function handleFilesDblClick(e) {
+      const treeItem = e.target.closest('.tree-item')
+      if (!treeItem) return
+      
+      const isDir = treeItem.dataset.isDir === 'true'
+      if (!isDir) return
+      
+      const childrenId = treeItem.dataset.childrenId
+      if (!childrenId) return
+      
+      const itemPath = treeItem.dataset.itemPath
+      const children = document.getElementById(childrenId)
+      const arrow = document.getElementById(treeItem.dataset.itemId + '-arrow')
+      
+      if (children.style.display === 'none') {
+        children.style.display = 'block'
+        arrow.textContent = '▼'
+        if (itemPath) {
+          filesExpandedPaths.add(itemPath)
+        }
+      } else {
+        children.style.display = 'none'
+        arrow.textContent = '▶'
+        if (itemPath) {
+          filesExpandedPaths.delete(itemPath)
+        }
+      }
+    }
+
+    function handleFilesContextMenu(e) {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      const treeItem = e.target.closest('.tree-item')
+      if (!treeItem) return
+      
+      const itemId = treeItem.dataset.itemId
+      
+      if (!filesSelectedItems.has(itemId)) {
+        clearFilesSelection()
+        filesSelectedItems.add(itemId)
+        treeItem.classList.add('selected')
+      }
+      
+      filesContextMenuTarget = treeItem
+      
+      const menu = document.getElementById('files-context-menu')
+      menu.style.left = e.clientX + 'px'
+      menu.style.top = e.clientY + 'px'
+      menu.style.display = 'block'
+    }
+
+    function initFilesTreeSelection() {
+      const treeView = document.getElementById('files-tree-view')
+      
+      treeView.removeEventListener('mousedown', handleFilesMouseDown)
+      document.removeEventListener('mousemove', handleFilesMouseMove)
+      document.removeEventListener('mouseup', handleFilesMouseUp)
+      treeView.removeEventListener('dblclick', handleFilesDblClick)
+      treeView.removeEventListener('contextmenu', handleFilesContextMenu)
+      document.removeEventListener('click', hideFilesContextMenu)
+      
+      treeView.addEventListener('mousedown', handleFilesMouseDown)
+      document.addEventListener('mousemove', handleFilesMouseMove)
+      document.addEventListener('mouseup', handleFilesMouseUp)
+      treeView.addEventListener('dblclick', handleFilesDblClick)
+      treeView.addEventListener('contextmenu', handleFilesContextMenu)
+      document.addEventListener('click', hideFilesContextMenu)
+    }
+
+    function clearFilesSelection() {
+      filesSelectedItems.forEach(itemId => {
+        const item = document.querySelector(`#files-tree-view [data-item-id="${itemId}"]`)
+        if (item) {
+          item.classList.remove('selected')
+        }
+      })
+      filesSelectedItems.clear()
+    }
+
+    function hideFilesContextMenu(e) {
+      if (!e.target.closest('#files-context-menu')) {
+        document.getElementById('files-context-menu').style.display = 'none'
+      }
+    }
+
+    async function filesContextMenuAction(action) {
+      if (action === 'add') {
+        // 收集所有选中的文件路径
+        const filePathsToAdd = []
+        
+        // 遍历所有选中的项，收集文件
+        filesSelectedItems.forEach(itemId => {
+          const item = document.querySelector(`#files-tree-view [data-item-id="${itemId}"]`)
+          if (item) {
+            const path = item.dataset.itemPath
+            const isDir = item.dataset.isDir === 'true'
+            
+            if (!isDir) {
+              // 是文件，直接添加
+              filePathsToAdd.push(path)
+            } else {
+              // 是文件夹，递归收集所有文件
+              collectFilesFromTree(directoryTree, path, filePathsToAdd)
+            }
+          }
+        })
+        
+        if (filePathsToAdd.length > 0) {
+          // 添加到已选择文件列表
+          selectedFilePaths = [...new Set([...selectedFilePaths, ...filePathsToAdd])]
+          updateSelectedFilesDisplay()
+          
+          // 读取并显示文件内容
+          if (selectedFilePaths.length > 0) {
+            const results = await ipcRenderer.invoke('read-files', selectedFilePaths)
+            
+            const filesGrid = document.getElementById('files-grid')
+            filesGrid.innerHTML = results.map(item => `
+              <div class="file-card">
+                <div class="file-header">
+                  <span class="file-path">${item.path}</span>
+                  <span class="encoding-tag">${item.encoding}</span>
+                </div>
+                <pre class="file-content">${item.content}</pre>
+                <button class="copy-button" onclick="copyFileContent(this)">📋 复制内容</button>
+              </div>
+            `).join('')
+            
+            document.getElementById('selected-files').style.display = 'block'
+            document.getElementById('file-count').textContent = selectedFilePaths.length
+            
+            const fileList = document.getElementById('file-list')
+            fileList.innerHTML = selectedFilePaths.map(f => `<li>${f}</li>`).join('')
+            
+            document.getElementById('files-empty').style.display = 'none'
+          }
+        }
+      } else if (action === 'select') {
+        // 打开文件选择对话框，和"选择文件"按钮效果一样
+        try {
+          const files = await ipcRenderer.invoke('select-files')
+          if (files.length > 0) {
+            // 添加到已选择文件列表
+            selectedFilePaths = [...new Set([...selectedFilePaths, ...files])]
+            
+            document.getElementById('selected-files').style.display = 'block'
+            document.getElementById('file-count').textContent = selectedFilePaths.length
+            
+            const fileList = document.getElementById('file-list')
+            fileList.innerHTML = selectedFilePaths.map(f => `<li>${f}</li>`).join('')
+
+            const results = await ipcRenderer.invoke('read-files', selectedFilePaths)
+            
+            const filesGrid = document.getElementById('files-grid')
+            filesGrid.innerHTML = results.map(item => `
+              <div class="file-card">
+                <div class="file-header">
+                  <span class="file-path">${item.path}</span>
+                  <span class="encoding-tag">${item.encoding}</span>
+                </div>
+                <pre class="file-content">${item.content}</pre>
+                <button class="copy-button" onclick="copyFileContent(this)">📋 复制内容</button>
+              </div>
+            `).join('')
+
+            document.getElementById('files-empty').style.display = 'none'
+          }
+        } catch (error) {
+          console.error('Failed to select files:', error)
+        }
+      }
+      
+      document.getElementById('files-context-menu').style.display = 'none'
+    }
+
+    function collectFilesFromTree(entries, targetPath, collectedFiles) {
+      for (const entry of entries) {
+        if (entry.is_dir) {
+          if (entry.path === targetPath) {
+            // 找到目标文件夹，收集其下所有文件
+            collectAllFiles(entry, collectedFiles)
+            return
+          }
+          if (entry.children) {
+            collectFilesFromTree(entry.children, targetPath, collectedFiles)
+          }
+        }
+      }
+    }
+
+    function collectAllFiles(entry, collectedFiles) {
+      if (entry.is_dir) {
+        if (entry.children) {
+          entry.children.forEach(child => collectAllFiles(child, collectedFiles))
+        }
+      } else {
+        collectedFiles.push(entry.path)
+      }
+    }
+
+    function updateSelectedFilesDisplay() {
+      if (selectedFilePaths.length > 0) {
+        document.getElementById('selected-files').style.display = 'block'
+        document.getElementById('file-count').textContent = selectedFilePaths.length
+        
+        const fileList = document.getElementById('file-list')
+        fileList.innerHTML = selectedFilePaths.map(f => `<li>${f}</li>`).join('')
+      } else {
+        document.getElementById('selected-files').style.display = 'none'
+      }
+    }
+
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text)
+        showToast('已复制到剪贴板')
+      } catch (error) {
+        console.error('Failed to copy:', error)
+      }
+    }
+
+    function showToast(message) {
+      const container = document.getElementById('toast-container')
+      
+      // 检查是否已经有5个 toast，如果是则不显示新的
+      const existingToasts = container.querySelectorAll('.toast')
+      if (existingToasts.length >= 5) {
+        return
+      }
+      
+      // 创建新的 toast 元素
+      const toast = document.createElement('div')
+      toast.className = 'toast'
+      toast.textContent = message
+      container.appendChild(toast)
+      
+      // 显示动画
+      setTimeout(() => {
+        toast.classList.add('show')
+      }, 10)
+      
+      // 2秒后隐藏并移除
+      setTimeout(() => {
+        toast.classList.remove('show')
+        setTimeout(() => {
+          if (toast.parentNode) {
+            toast.parentNode.removeChild(toast)
+          }
+        }, 300)
+      }, 2000)
+    }
+
+    function copyFileContent(btn) {
+      const card = btn.closest('.file-card')
+      const filePath = card.querySelector('.file-path').textContent
+      const fileContent = card.querySelector('pre.file-content').textContent
+      
+      const separator = '---------------'
+      const result = separator + '\n' + filePath + '\n' + separator + '\n' + fileContent
+      
+      copyToClipboard(result)
+    }
+
+    function copyAllFilesContent() {
+      const fileCards = document.querySelectorAll('.file-card')
+      if (fileCards.length === 0) {
+        showToast('没有可复制的文件')
+        return
+      }
+      
+      const separator = '---------------'
+      let result = ''
+      
+      fileCards.forEach((card, index) => {
+        const filePath = card.querySelector('.file-path').textContent
+        const fileContent = card.querySelector('pre.file-content').textContent
+        
+        result += separator + '\n'
+        result += filePath + '\n'
+        result += separator + '\n'
+        result += fileContent
+        if (index < fileCards.length - 1) {
+          result += '\n\n' + separator + '\n\n'
+        }
+      })
+      
+      copyToClipboard(result)
+    }
+
+    window.onload = function() {
+      loadGlobalSettings()
+    }
+  </script>
+  <div id="files-context-menu">
+    <div class="menu-item" onclick="filesContextMenuAction('add')">📄 添加选择文件</div>
+    <div class="menu-item" onclick="filesContextMenuAction('select')">📂 添加文件</div>
+  </div>
+  <div id="toast-container" class="toast-container"></div>
+</body>
+</html>
